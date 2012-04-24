@@ -1,28 +1,12 @@
 #ifndef QTGLWINDOW_H
 #define QTGLWINDOW_H
 
-#include <QtOpenGL>
 #include <QGLWidget>
 #include <QGLShaderProgram>
 #include <QMatrix4x4>
-#include <QTime>
+#include <QBasicTimer>
 
-#include "scene/qterrain.h"
-#include "qcamera.h"
-#include "scene/qnolod.h"
-
-const static QString imagesPath[] =
-{
-    ":/images/grass2.jpg",
-};
-
-enum textureIndex
-{
-    grassIndex,
-
-    textureCount
-};
-
+#include "common/qcommon.h"
 
 class QtGLWindow : public QGLWidget
 {
@@ -34,51 +18,19 @@ public:
     void initializeGL();
     void resizeGL(int w, int h);
     void paintGL();
+
     void timerEvent(QTimerEvent *e);
 
-    void initShaders(QGLShaderProgram &program ,QString vshaderPath, QString fshaderPath);
-
-protected:
-
-    void useCurrentProgram(QGLShaderProgram &program);
-
+private:
     void initTextures();
     GLuint loadTexture(QString texPath);
-
-    bool initMapSize(int *size);
+    void initShaders(QGLShaderProgram& program, QString vertexPath, QString fragmentPath);
+    void useCurrentProgram(QGLShaderProgram& program);
 
 private:
-    QGLShaderProgram m_vertexProgram;
-    GLuint *m_textures;
-
-    QTerrain    m_terrain;
-    QCamera     m_camera;
-    QFrustum    m_frustum;
-    QNoLodQuad  m_noLodQuad;
-
-    float m_CameraSpeed;
+    QGLShaderProgram*   m_program;
+    QMatrix4x4          m_projectionMatrix;
+    GLuint*             m_textures;
 };
 
 #endif // QTGLWINDOW_H
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

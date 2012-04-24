@@ -1,9 +1,9 @@
 #ifndef QCOMMON_H
 #define QCOMMON_H
 
-#include "qrect3dex.h"
-#include "qcubeex.h"
-#include "qplane3d.h"
+#include "math/qrect3dex.h"
+#include "math/qcubeex.h"
+#include "math/qplane3d.h"
 
 #include <QMatrix4x4>
 

@@ -1,94 +1,73 @@
 #include "qtglwindow.h"
 
-#include "mem/dbg.h"
+QString ImagesPath[] = {
+    ":/images/water.png",
+    ":/images/cube.bmp",
+    ":/images/grass2.jpg",
+    ":/images/grass.png",
+    ":/images/heightmap128x128.png",
+    ":/images/landform.png",
+};
+
+enum ETextureIndex
+{
+    texWaterIndex,
+    texCubeIndex,
+    texGrass2Index,
+    texGrassIndex,
+    texHeightMap128x128Index,
+    texLandformIndex,
+
+    textureCount
+};
 
 QtGLWindow::QtGLWindow(QWidget *parent) :
-    QGLWidget(parent),
-    m_vertexProgram(context())
+    QGLWidget(parent)
 {
-    startTimer(1000.0f / 70);
+    m_program = new QGLShaderProgram(context());
 }
 
 QtGLWindow::~QtGLWindow()
 {
-    m_vertexProgram.deleteLater();
+    m_program->deleteLater();
 
-    safe_delete_array(m_textures);
-}
-
-void QtGLWindow::useCurrentProgram(QGLShaderProgram &program)
-{
-    program.bind();
+    for(int i = 0; i < textureCount; i++)
+    {
+        deleteTexture(m_textures[i]);
+    }
 }
 
 void QtGLWindow::initializeGL()
 {
     initTextures();
-    initShaders(m_vertexProgram, ":/shaders/vshader.vsh", ":/shaders/fshader.fsh");
-
-    useCurrentProgram(m_vertexProgram);
-
-    float fov = QPI * 0.25f;
-    float aspect = (float)WIDTH / (float)HEIGHT;
-    float nearPlane = 1.0f;
-    float farPlane = 20000.0f;
-
-    QVector3D position(0.0f, 300.0f, 0.0f);
-
-    m_camera.setProjectionMatrix(fov, aspect, nearPlane, farPlane);
-    m_camera.setPosition(position);
-
-    const int mapSize = 128;
-    const float w = mapSize * 16.0f;
-    const float y = 1600.0f;
-
-    QCubeEx world(QVector3D(-w, -y+300, -w),
-                  QVector3D( w,  y+300,  w));
-
-    m_terrain.create(&m_vertexProgram, m_textures[grassIndex],
-                     mapSize, ":/images/heightmap128x128.png", world);
-    qDebug() << "Terrain initialize..";
-    m_noLodQuad.init(&m_terrain, m_frustum);
-    qDebug() << "Lod initialize..";
-    m_terrain.setLodType(&m_noLodQuad);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    qDebug() << "InitGL completed...";
+    initShaders(*m_program, ":/shaders/vertexshader.vsh", ":/shaders/fragmentshader.fsh");
+    useCurrentProgram(*m_program);
 }
 
 void QtGLWindow::resizeGL(int w, int h)
 {
     glViewport(0, 0, w, h);
+    QMatrix4x4 matrix;
+    matrix.setToIdentity();
 
-    m_vertexProgram.setUniformValue("u_mvpMatrix", m_camera.getProjectionMatrix());
+    float fov = QPI * 0.25f;
+    float aspect = (float)WIDTH / (float)HEIGHT;
+    float near = 1.0f;
+    float far = 2000.0f;
 
-    qDebug() << "width=" << w << ", height=" << h;
-    qDebug() << "ResizeGL Completed..";
+    matrix.perspective(fov, aspect, near, far);
+
+    QMatrix4x4 m(1, 0, 0, 0,
+                 0,-1, 0, 0,
+                 0, 0,-1, 0,
+                 0, 0, 0, 1);
+
+    m_projectionMatrix = matrix * m;
 }
 
 void QtGLWindow::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-//    m_camera.update(&m_frustum);
-    QMatrix4x4 modelMatrix;
-    modelMatrix.setToIdentity();
-    modelMatrix.translate(0, -300, 0);
-    modelMatrix.rotate(-80, 1.0f, 0.0f, 0.0f);
-    m_vertexProgram.setUniformValue("u_mvpMatrix", m_camera.getProjectionMatrix() * modelMatrix);
-
-    m_terrain.render(m_frustum);
-}
-
-void QtGLWindow::initShaders(QGLShaderProgram &program, QString vshaderPath, QString fshaderPath)
-{
-    setlocale(LC_NUMERIC, "C");
-    program.addShaderFromSourceFile(QGLShader::Vertex, vshaderPath);
-    program.addShaderFromSourceFile(QGLShader::Fragment, fshaderPath);
-    program.link();
-    setlocale(LC_ALL, "");
 }
 
 void QtGLWindow::timerEvent(QTimerEvent *e)
@@ -103,19 +82,37 @@ void QtGLWindow::initTextures()
 
     for(int i = 0; i < textureCount; i++)
     {
-        m_textures[i] = loadTexture(imagesPath[i]);
+        m_textures[i] = loadTexture(ImagesPath[i]);
     }
 }
 
 GLuint QtGLWindow::loadTexture(QString texPath)
 {
     GLuint tex;
+
     glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
     tex = bindTexture(QImage(texPath));
+
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
     return tex;
 }
+
+void QtGLWindow::initShaders(QGLShaderProgram& program, QString vertexPath, QString fragmentPath)
+{
+    setlocale(LC_NUMERIC, "C");
+    program.addShaderFromSourceFile(QGLShader::Vertex, vertexPath);
+    program.addShaderFromSourceFile(QGLShader::Fragment, fragmentPath);
+    program.link();
+    setlocale(LC_ALL, "");
+}
+
+void QtGLWindow::useCurrentProgram(QGLShaderProgram &program)
+{
+    program.bind();
+}
+
